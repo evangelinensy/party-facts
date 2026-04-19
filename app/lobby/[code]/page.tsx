@@ -12,7 +12,7 @@ import { INK, INK2, DASH, GROUPS } from '@/lib/design'
 
 type Identity = { isHost: boolean; hostToken?: string; playerToken?: string; gameCode: string }
 
-function LobbyRow({ name, group, fresh }: { name: string; group: string; fresh: boolean }) {
+function LobbyTile({ name, group, fresh }: { name: string; group: string; fresh: boolean }) {
   const [vis, setVis] = useState(!fresh)
   useEffect(() => {
     if (fresh) { const t = setTimeout(() => setVis(true), 80); return () => clearTimeout(t) }
@@ -20,13 +20,17 @@ function LobbyRow({ name, group, fresh }: { name: string; group: string; fresh: 
   const color = GROUPS[group]?.color ?? '#999'
   return (
     <div style={{
-      display: 'flex', alignItems: 'center', gap: 10,
-      padding: '6px 0', borderBottom: `1px dashed ${DASH}`,
-      opacity: vis ? 1 : 0, transform: vis ? 'none' : 'translateX(-10px)',
+      display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6,
+      width: 68,
+      opacity: vis ? 1 : 0, transform: vis ? 'none' : 'translateY(-6px)',
       transition: 'all 0.35s ease',
     }}>
-      <GroupAvatar initial={name[0]} color={color} size={28} />
-      <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 13, fontWeight: 700, color: INK, flex: 1, letterSpacing: 0.5 }}>
+      <GroupAvatar initial={name[0]} color={color} size={48} />
+      <span style={{
+        fontFamily: "'Space Mono', monospace", fontSize: 11, fontWeight: 700, color: INK,
+        letterSpacing: 0.5, textAlign: 'center', lineHeight: 1.2,
+        width: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+      }}>
         {name.toUpperCase()}
       </span>
     </div>
@@ -96,10 +100,20 @@ export default function LobbyPage() {
 
         {byGroup.map(({ letter, color, displayName, members }) => (
           <div key={letter} style={{ marginBottom: 14 }}>
-            <ReceiptLabel>── {displayName} ──────────────────</ReceiptLabel>
-            <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+              <div style={{ flex: '0 0 10px', height: 2, background: color }} />
+              <span style={{
+                fontFamily: "'Bebas Neue', sans-serif", fontSize: 14, color,
+                letterSpacing: 3, textTransform: 'uppercase',
+              }}>{displayName}</span>
+              <span style={{
+                fontFamily: "'Space Mono', monospace", fontSize: 10, color: INK2, letterSpacing: 1,
+              }}>({members.length})</span>
+              <div style={{ flex: 1, height: 2, background: color, opacity: 0.3 }} />
+            </div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, justifyContent: 'flex-start' }}>
               {members.map((p, i) => (
-                <LobbyRow key={p.id} name={p.name} group={p.groupLetter} fresh={i === members.length - 1 && players.length > prevCount} />
+                <LobbyTile key={p.id} name={p.name} group={p.groupLetter} fresh={i === members.length - 1 && players.length > prevCount} />
               ))}
             </div>
           </div>

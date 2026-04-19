@@ -30,8 +30,9 @@ export function useGameState(code: string, token?: string, intervalMs = 2000) {
   const [error, setError] = useState<string | null>(null)
 
   const doFetch = useCallback(async () => {
-    const res = await fetch(`/api/games/${code}`, {
+    const res = await fetch(`/api/games/${code}?t=${Date.now()}`, {
       headers: token ? { Authorization: `Bearer ${token}` } : {},
+      cache: 'no-store',
     })
     if (!res.ok) {
       setError('Game not found')

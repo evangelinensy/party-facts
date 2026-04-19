@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server'
 import { getGame } from '@/lib/store'
 import { getTokenFromHeader } from '@/lib/auth'
+
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
 import {
   getCurrentOnStageGroup,
   getOnStagePlayers,
@@ -65,5 +68,5 @@ export async function GET(req: Request, { params }: { params: { code: string } }
     totalAudience: audiencePlayers.length,
     myGuess,
     myGuessCorrect,
-  })
+  }, { headers: { 'Cache-Control': 'no-store, max-age=0' } })
 }
