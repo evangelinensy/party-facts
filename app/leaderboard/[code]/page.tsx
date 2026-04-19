@@ -106,17 +106,43 @@ export default function LeaderboardPage() {
                     {p.name.toUpperCase()}
                   </div>
                   {(p.instagram || p.telegram) && (
-                    <div style={{ display: 'flex', gap: 8, marginTop: 2 }}>
+                    <div style={{ display: 'flex', gap: 6, marginTop: 4, alignItems: 'center' }}>
+                      <span style={{
+                        fontFamily: "'Space Mono', monospace", fontSize: 9, color: INK2,
+                        letterSpacing: 1, textTransform: 'uppercase',
+                      }}>
+                        Add friend
+                      </span>
                       {p.instagram && (
-                        <a href={`https://instagram.com/${p.instagram}`} target="_blank" rel="noopener noreferrer"
-                          style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: '#E1306C', textDecoration: 'none', letterSpacing: 0.5 }}>
-                          @{p.instagram}
+                        <a
+                          href={`https://instagram.com/${p.instagram}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          aria-label={`Instagram @${p.instagram}`}
+                          style={{
+                            width: 22, height: 22, borderRadius: 6,
+                            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                            overflow: 'hidden', flexShrink: 0,
+                            boxShadow: '0 1px 2px rgba(0,0,0,0.15)',
+                          }}
+                        >
+                          <img src="/ig-logo.png" alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
                         </a>
                       )}
                       {p.telegram && (
-                        <a href={`https://t.me/${p.telegram}`} target="_blank" rel="noopener noreferrer"
-                          style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: '#0088CC', textDecoration: 'none', letterSpacing: 0.5 }}>
-                          tg:{p.telegram}
+                        <a
+                          href={`https://t.me/${p.telegram}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          aria-label={`Telegram @${p.telegram}`}
+                          style={{
+                            width: 22, height: 22, borderRadius: '50%',
+                            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                            overflow: 'hidden', flexShrink: 0,
+                            boxShadow: '0 1px 2px rgba(0,0,0,0.15)',
+                          }}
+                        >
+                          <img src="/tg-logo.png" alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
                         </a>
                       )}
                     </div>
