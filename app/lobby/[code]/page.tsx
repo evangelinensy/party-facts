@@ -12,18 +12,13 @@ import { INK, INK2, DASH, GROUPS } from '@/lib/design'
 
 type Identity = { isHost: boolean; hostToken?: string; playerToken?: string; gameCode: string }
 
-function LobbyTile({ name, group, fresh, photo }: { name: string; group: string; fresh: boolean; photo?: string }) {
-  const [vis, setVis] = useState(!fresh)
-  useEffect(() => {
-    if (fresh) { const t = setTimeout(() => setVis(true), 80); return () => clearTimeout(t) }
-  }, [fresh])
+function LobbyTile({ name, group, photo }: { name: string; group: string; photo?: string }) {
   const color = GROUPS[group]?.color ?? '#999'
   return (
     <div style={{
       display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6,
       width: 72,
-      opacity: vis ? 1 : 0, transform: vis ? 'none' : 'translateY(-6px)',
-      transition: 'all 0.35s ease',
+      animation: 'slideUp 0.35s ease',
     }}>
       {photo ? (
         <div style={{
@@ -59,7 +54,6 @@ export default function LobbyPage() {
   const [identity, setIdentity] = useState<Identity | null>(null)
   const [starting, setStarting] = useState(false)
   const [startError, setStartError] = useState('')
-  const [prevCount, setPrevCount] = useState(0)
 
   useEffect(() => {
     const raw = localStorage.getItem('pf_identity')
@@ -84,10 +78,6 @@ export default function LobbyPage() {
     if (data?.game.status === 'playing')  router.push(`/game/${code}`)
     if (data?.game.status === 'finished') router.push(`/social/${code}`)
   }, [data?.game.status, code, router])
-
-  useEffect(() => {
-    if (data) setPrevCount(data.players.length)
-  }, [data?.players.length])
 
   async function handleStart() {
     setStartError('')
@@ -139,8 +129,8 @@ export default function LobbyPage() {
               <div style={{ flex: 1, height: 2, background: color, opacity: 0.3 }} />
             </div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, justifyContent: 'flex-start' }}>
-              {members.map((p, i) => (
-                <LobbyTile key={p.id} name={p.name} group={p.groupLetter} photo={p.photo} fresh={i === members.length - 1 && players.length > prevCount} />
+              {members.map(p => (
+                <LobbyTile key={p.id} name={p.name} group={p.groupLetter} photo={p.photo} />
               ))}
             </div>
           </div>
