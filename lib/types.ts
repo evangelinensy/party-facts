@@ -44,4 +44,8 @@ export type Game = {
   players: Player[]
   guesses: Guess[]
   createdAt: number
+  // Intermission shown before each group takes the stage.
+  groupIntermission?: boolean
+  // Player IDs who have tapped "I'm ready" for the current intermission.
+  readyPlayerIds?: string[]
 }

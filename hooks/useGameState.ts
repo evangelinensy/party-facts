@@ -12,6 +12,9 @@ export type GameState = {
     roundRevealed: boolean
     hostName: string
     groupNames: Record<string, string>
+    groupIntermission?: boolean
+    readyCount?: number
+    amIReady?: boolean
   }
   players: Player[]
   onStagePlayers: Player[]

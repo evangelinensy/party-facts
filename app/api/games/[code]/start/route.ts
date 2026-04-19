@@ -25,6 +25,8 @@ export async function POST(req: Request, { params }: { params: { code: string } 
     currentGroupIdx: 0,
     currentFactIdx: 0,
     roundRevealed: false,
+    groupIntermission: true,
+    readyPlayerIds: [],
   })
 
   return NextResponse.json({ success: true })

@@ -25,6 +25,8 @@ export default function GamePage() {
   const [hostRevealed, setHostRevealed] = useState(false)
   const prevRoundKey = useRef('')
   const wrongFiredRef = useRef('')
+  const autoAdvanceKeyRef = useRef('')
+  const autoAdvanceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
     const raw = localStorage.getItem('pf_identity')
@@ -46,6 +48,38 @@ export default function GamePage() {
     }
     if (data.myGuess) setSubmitted(true)
   }, [data, code, router])
+
+  // Auto-advance ~5s after everyone has submitted and the round is revealed.
+  // Guarded per-round so it fires at most once; cleared if the host manually advances.
+  useEffect(() => {
+    if (!data || !identity?.isHost) return
+    const { game, guessCount, totalAudience } = data
+    const roundKey = `${game.currentGroupIdx}_${game.currentFactIdx}`
+    // Round changed — cancel any pending advance from the previous round.
+    if (autoAdvanceKeyRef.current && autoAdvanceKeyRef.current !== roundKey) {
+      if (autoAdvanceTimerRef.current) clearTimeout(autoAdvanceTimerRef.current)
+      autoAdvanceTimerRef.current = null
+      autoAdvanceKeyRef.current = ''
+    }
+    const everyoneGuessed = totalAudience > 0 && guessCount >= totalAudience
+    if (game.roundRevealed && everyoneGuessed && autoAdvanceKeyRef.current !== roundKey) {
+      autoAdvanceKeyRef.current = roundKey
+      autoAdvanceTimerRef.current = setTimeout(async () => {
+        try {
+          await fetch(`/api/games/${code}/advance`, {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${identity.hostToken}` },
+          })
+          refetch()
+        } catch {}
+      }, 5000)
+    }
+  }, [data, identity, code, refetch])
+
+  // Clean up pending timer on unmount.
+  useEffect(() => () => {
+    if (autoAdvanceTimerRef.current) clearTimeout(autoAdvanceTimerRef.current)
+  }, [])
 
   // Play a wrong-answer sound when the host reveals and the local audience player missed.
   useEffect(() => {
@@ -80,6 +114,17 @@ export default function GamePage() {
     refetch()
   }
 
+  async function handleReady(force = false) {
+    const authToken = identity?.isHost ? identity.hostToken : identity?.playerToken
+    if (!authToken) return
+    await fetch(`/api/games/${code}/ready`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
+      body: JSON.stringify(force ? { force: true } : {}),
+    })
+    refetch()
+  }
+
   async function handleGuess() {
     if (selected === null || submitting) return
     setSubmitting(true)
@@ -110,6 +155,22 @@ export default function GamePage() {
   const factCount    = onStagePlayers.length
   const isHost       = identity.isHost
   const isOnStage    = !isHost && identity.playerGroup === currentGroup
+
+  if (game.groupIntermission) {
+    return (
+      <IntermissionScreen
+        groupName={groupName}
+        groupColor={groupColor}
+        intermissionKey={`int_${game.currentGroupIdx}`}
+        readyCount={game.readyCount ?? 0}
+        totalPlayers={data.players.length}
+        amIReady={!!game.amIReady}
+        isHost={isHost}
+        onReady={() => handleReady(false)}
+        onForceStart={() => handleReady(true)}
+      />
+    )
+  }
 
   if (isHost) return (
     <Screen bg="host">
@@ -400,6 +461,8 @@ export default function GamePage() {
           {submitting ? 'SUBMITTING…' : submitted && !game.roundRevealed ? 'ANSWER LOCKED IN' : 'SUBMIT ANSWER'}
         </button>
       </div>
+
+      <IdleToast message="Ask the group on stage any questions!" />
     </main>
   )
 }
@@ -428,5 +491,167 @@ function Screen({ children, bg }: { children: React.ReactNode; bg: string }) {
       <VintageBg screen={bg} />
       {children}
     </main>
+  )
+}
+
+function IntermissionScreen({
+  groupName, groupColor, intermissionKey,
+  readyCount, totalPlayers, amIReady, isHost,
+  onReady, onForceStart,
+}: {
+  groupName: string; groupColor: string; intermissionKey: string;
+  readyCount: number; totalPlayers: number; amIReady: boolean; isHost: boolean;
+  onReady: () => void; onForceStart: () => void;
+}) {
+  // If the countdown runs out, auto-mark this viewer ready so the round can start.
+  const onReadyRef = useRef(onReady)
+  onReadyRef.current = onReady
+  useEffect(() => {
+    const t = setTimeout(() => { onReadyRef.current() }, 120_000)
+    return () => clearTimeout(t)
+  }, [intermissionKey])
+
+  return (
+    <main style={{
+      position: 'relative', minHeight: '100vh',
+      padding: '48px 20px 140px',
+      display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+    }}>
+      <VintageBg screen="onstage" />
+
+      <div style={{ position: 'relative', zIndex: 1, textAlign: 'center', maxWidth: 420, width: '100%' }}>
+        <div style={{
+          fontFamily: "'Departure Mono', 'Space Mono', monospace",
+          fontSize: 14, color: '#FFF', letterSpacing: 3, marginBottom: 12, opacity: 0.8,
+        }}>UP ON STAGE NEXT</div>
+
+        <div style={{
+          display: 'inline-block',
+          padding: '10px 28px',
+          border: `3px solid ${groupColor}`,
+          marginBottom: 36,
+          background: `${groupColor}20`,
+        }}>
+          <span style={{
+            fontFamily: "'Departure Mono', 'Space Mono', monospace",
+            fontSize: 28, color: groupColor, letterSpacing: 4,
+          }}>{groupName.toUpperCase()}</span>
+        </div>
+
+        <div style={{ marginBottom: 28 }}>
+          <div style={{ display: 'inline-block' }}>
+            <Timer
+              resetKey={intermissionKey}
+              duration={120}
+              size={120}
+              fontFamily="'Departure Mono', 'Space Mono', monospace"
+              letterSpacing={4}
+              sound={false}
+            />
+          </div>
+          <div style={{
+            fontFamily: "'Departure Mono', 'Space Mono', monospace",
+            fontSize: 12, color: '#FFF', letterSpacing: 2, opacity: 0.6, marginTop: 6,
+          }}>SECONDS</div>
+        </div>
+
+        <div style={{
+          fontFamily: "'Departure Mono', 'Space Mono', monospace",
+          fontSize: 13, color: '#FFF', letterSpacing: 2, opacity: 0.8,
+        }}>
+          {readyCount} / {totalPlayers} READY
+        </div>
+      </div>
+
+      <div style={{
+        position: 'fixed', left: 0, right: 0, bottom: 0,
+        padding: '16px 16px 22px',
+        display: 'flex', justifyContent: 'center',
+        background: 'linear-gradient(to top, rgba(0,0,0,0.9) 40%, rgba(0,0,0,0))',
+        zIndex: 20,
+      }}>
+        {isHost ? (
+          <button
+            onClick={onForceStart}
+            style={{
+              width: '100%', maxWidth: 320,
+              padding: '16px 28px',
+              background: '#FF4A1C', border: 'none', borderRadius: 999,
+              fontFamily: "'Departure Mono', 'Space Mono', monospace",
+              fontSize: 18, color: '#FFF', letterSpacing: 3, cursor: 'pointer',
+              boxShadow: '0 6px 0 rgba(0,0,0,0.25), 0 12px 24px rgba(255,74,28,0.35)',
+            }}
+          >
+            START NOW
+          </button>
+        ) : (
+          <button
+            onClick={onReady}
+            disabled={amIReady}
+            style={{
+              width: '100%', maxWidth: 320,
+              padding: '16px 28px',
+              background: amIReady ? '#3AA84E' : '#FF4A1C',
+              border: 'none', borderRadius: 999,
+              fontFamily: "'Departure Mono', 'Space Mono', monospace",
+              fontSize: 18, color: '#FFF', letterSpacing: 3,
+              cursor: amIReady ? 'default' : 'pointer',
+              boxShadow: amIReady ? 'none' : '0 6px 0 rgba(0,0,0,0.25), 0 12px 24px rgba(255,74,28,0.35)',
+              transition: 'all 0.2s',
+            }}
+          >
+            {amIReady ? 'READY ✓' : "I'M READY"}
+          </button>
+        )}
+      </div>
+    </main>
+  )
+}
+
+function IdleToast({ message, delayMs = 10000 }: { message: string; delayMs?: number }) {
+  const [show, setShow] = useState(false)
+  const [dismissed, setDismissed] = useState(false)
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => {
+    if (dismissed) return
+    const reset = () => {
+      if (timerRef.current) clearTimeout(timerRef.current)
+      setShow(false)
+      timerRef.current = setTimeout(() => setShow(true), delayMs)
+    }
+    reset()
+    const events = ['pointerdown', 'keydown', 'touchstart', 'scroll']
+    events.forEach(e => window.addEventListener(e, reset, { passive: true }))
+    return () => {
+      events.forEach(e => window.removeEventListener(e, reset))
+      if (timerRef.current) clearTimeout(timerRef.current)
+    }
+  }, [delayMs, dismissed])
+
+  if (dismissed || !show) return null
+
+  return (
+    <div style={{
+      position: 'fixed', bottom: 96, right: 16,
+      background: '#1A1A1A', color: '#FFF',
+      padding: '10px 14px', paddingRight: 34,
+      borderRadius: 12, border: '1px solid #333',
+      maxWidth: 260, zIndex: 30,
+      fontFamily: "'Space Mono', monospace", fontSize: 12, lineHeight: 1.4,
+      boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
+      animation: 'slideUp 0.3s ease',
+    }}>
+      {message}
+      <button
+        onClick={() => setDismissed(true)}
+        aria-label="Dismiss"
+        style={{
+          position: 'absolute', top: 6, right: 6,
+          width: 22, height: 22, border: 'none', background: 'transparent',
+          color: '#FFF', cursor: 'pointer', fontSize: 16, lineHeight: 1,
+        }}
+      >×</button>
+    </div>
   )
 }

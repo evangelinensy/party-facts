@@ -52,7 +52,14 @@ export function applyAdvance(game: Game): Game {
   if (!isLastFact) {
     return { ...game, currentFactIdx: game.currentFactIdx + 1, roundRevealed: false }
   } else if (!isLastGroup) {
-    return { ...game, currentGroupIdx: game.currentGroupIdx + 1, currentFactIdx: 0, roundRevealed: false }
+    return {
+      ...game,
+      currentGroupIdx: game.currentGroupIdx + 1,
+      currentFactIdx: 0,
+      roundRevealed: false,
+      groupIntermission: true,
+      readyPlayerIds: [],
+    }
   } else {
     return { ...game, status: 'finished' }
   }
