@@ -66,6 +66,17 @@ export default function LobbyPage() {
     if (raw) setIdentity(JSON.parse(raw))
   }, [])
 
+  // Background party music while waiting in the lobby. Stops when the page unmounts
+  // (i.e. when the host starts the game or the player navigates away).
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const music = new Audio('/lobby-music.mp3')
+    music.volume = 0.35
+    music.loop = true
+    music.play().catch(() => {})
+    return () => { music.pause(); music.currentTime = 0 }
+  }, [])
+
   const token = identity?.isHost ? identity.hostToken : identity?.playerToken
   const { data, error } = useGameState(code, token)
 

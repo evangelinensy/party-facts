@@ -24,6 +24,7 @@ export default function GamePage() {
   const [submitted, setSubmitted] = useState(false)
   const [hostRevealed, setHostRevealed] = useState(false)
   const prevRoundKey = useRef('')
+  const wrongFiredRef = useRef('')
 
   useEffect(() => {
     const raw = localStorage.getItem('pf_identity')
@@ -46,6 +47,27 @@ export default function GamePage() {
     if (data.myGuess) setSubmitted(true)
   }, [data, code, router])
 
+  // Play a wrong-answer sound when the host reveals and the local audience player missed.
+  useEffect(() => {
+    if (!data || !identity) return
+    const { game } = data
+    if (!game.roundRevealed) return
+    if (identity.isHost) return
+    const currentGroup = game.groupOrder[game.currentGroupIdx]
+    if (identity.playerGroup === currentGroup) return // on-stage doesn't guess
+    const roundKey = `${game.currentGroupIdx}_${game.currentFactIdx}`
+    if (wrongFiredRef.current === roundKey) return
+    const correctId = data.onStagePlayers?.[game.currentFactIdx]?.id
+    if (data.myGuess && correctId && data.myGuess !== correctId) {
+      wrongFiredRef.current = roundKey
+      try {
+        const wrong = new Audio('/wrong.mp3')
+        wrong.volume = 0.6
+        wrong.play().catch(() => {})
+      } catch {}
+    }
+  }, [data, identity])
+
   async function handleReveal() {
     await fetch(`/api/games/${code}/reveal`, { method: 'POST', headers: { Authorization: `Bearer ${identity?.hostToken}` } })
     setHostRevealed(true)
@@ -61,6 +83,11 @@ export default function GamePage() {
   async function handleGuess() {
     if (selected === null || submitting) return
     setSubmitting(true)
+    try {
+      const woosh = new Audio('/woosh.mp3')
+      woosh.volume = 0.7
+      woosh.play().catch(() => {})
+    } catch {}
     try {
       await fetch(`/api/games/${code}/guess`, {
         method: 'POST',
@@ -177,132 +204,203 @@ export default function GamePage() {
 
   // Audience
   const correctId = game.roundRevealed ? onStagePlayers[game.currentFactIdx]?.id : null
-
-  function btnStyle(p: Player) {
-    const isSel   = selected === p.id
-    const isOwner = p.id === correctId
-    const locked  = submitted || game.roundRevealed
-    if (game.roundRevealed && isOwner)           return { border: `2px solid ${CORRECT}`, bg: `${CORRECT}15`, label: 'CORRECT ✓', labelColor: CORRECT }
-    if (game.roundRevealed && isSel && !isOwner) return { border: `2px solid ${WRONG}`,   bg: `${WRONG}15`,   label: 'WRONG ✗',   labelColor: WRONG }
-    if (isSel)                                   return { border: `2px solid ${INK}`,      bg: `${INK}08`,     label: null,        labelColor: INK }
-    return { border: `1.5px dashed ${DASH}`, bg: 'transparent', label: null, labelColor: INK }
-  }
+  const locked = submitted || game.roundRevealed
+  const gotItRight = game.roundRevealed && selected === correctId
+  const GREEN = '#6BD847'
+  const GREEN_BRIGHT = '#C4E645'
 
   return (
-    <Screen bg="audience">
-      <Paper tilt={0.5}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
-          <GroupStamp color={groupColor} label={`${groupName} on stage`} small />
-          <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 32, color: INK, lineHeight: 1, letterSpacing: 2 }}>
-            <Timer resetKey={timerKey} />
+    <main style={{
+      position: 'relative', minHeight: '100vh',
+      padding: '28px 14px 140px',
+      display: 'flex', justifyContent: 'center',
+    }}>
+      <VintageBg screen="audience" />
+
+      <div style={{
+        position: 'relative', zIndex: 1,
+        width: '100%', maxWidth: 400,
+        background: PAPER, borderRadius: 18,
+        padding: '22px 22px 26px',
+        boxShadow: '0 20px 60px rgba(0,0,0,0.45)',
+      }}>
+        {/* ── Header ── */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
+          <div>
+            <div style={{ fontFamily: "'Departure Mono', 'Space Mono', monospace", fontSize: 12, color: INK, letterSpacing: 2 }}>
+              ON STAGE
+            </div>
+            <div style={{ fontFamily: "'Departure Mono', 'Space Mono', monospace", fontSize: 14, color: groupColor, letterSpacing: 2, marginTop: 3 }}>
+              {groupName.toUpperCase()}
+            </div>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <img src="/timer.svg" alt="" width={30} height={30} />
+            <Timer resetKey={timerKey} size={34} fontFamily="'Departure Mono', 'Space Mono', monospace" letterSpacing={1} />
           </div>
         </div>
-        <Dash />
 
-        <ReceiptLabel center>The fact</ReceiptLabel>
+        <div style={{ borderTop: `2px dashed ${DASH}`, marginBottom: 16 }} />
+
+        {/* ── Prompt ── */}
         <div style={{
-          margin: '8px 0 4px',
-          padding: '22px 18px',
-          border: `2.5px solid ${INK}`,
-          background: '#FFF8E8',
-          textAlign: 'center',
-          minHeight: 120,
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontFamily: "'Departure Mono', 'Space Mono', monospace",
+          fontSize: 14, color: INK, letterSpacing: 1.5, lineHeight: 1.4, marginBottom: 12,
+        }}>
+          GUESS WHOSE FACT THIS<br />BELONGS TO
+        </div>
+
+        {/* ── Green fact box ── */}
+        <div style={{
+          background: GREEN_BRIGHT,
+          padding: '18px 16px',
+          marginBottom: 22,
+          minHeight: 90,
+          display: 'flex', alignItems: 'center',
         }}>
           <div style={{
-            fontFamily: "'Space Mono', monospace",
-            fontSize: 17, fontWeight: 700, color: INK, lineHeight: 1.5,
+            fontFamily: "'Departure Mono', 'Space Mono', monospace",
+            fontSize: 18, color: INK, lineHeight: 1.45, letterSpacing: 0.5,
           }}>
-            {currentFact ?? 'Loading…'}
+            {currentFact ?? '…'}
           </div>
         </div>
-        <Dash />
 
-        <ReceiptLabel center>Whose fact is this? Tap to guess.</ReceiptLabel>
+        {/* ── "select a person" ── */}
         <div style={{
-          marginTop: 10,
+          textAlign: 'center',
+          fontFamily: "'Departure Mono', 'Space Mono', monospace",
+          fontSize: 13, color: INK2, letterSpacing: 1, marginBottom: 14,
+        }}>select a person</div>
+
+        {/* ── Grid ── */}
+        <div style={{
           display: 'grid',
-          gridTemplateColumns: `repeat(${Math.min(onStagePlayers.length, 3)}, 1fr)`,
-          gap: 10,
+          gridTemplateColumns: 'repeat(3, 1fr)',
+          rowGap: 18, columnGap: 10,
+          justifyItems: 'center',
         }}>
           {onStagePlayers.map(p => {
-            const s = btnStyle(p)
-            const locked = submitted || game.roundRevealed
             const isSel = selected === p.id
-            const hasPhoto = !!p.photo
+            const isOwner = p.id === correctId
+            const ring = game.roundRevealed && isOwner ? GREEN
+                       : game.roundRevealed && isSel && !isOwner ? WRONG
+                       : isSel ? GREEN : 'transparent'
+            const nameColor = game.roundRevealed && isOwner ? GREEN
+                            : game.roundRevealed && isSel && !isOwner ? WRONG
+                            : isSel ? GREEN : INK
             return (
-              <button key={p.id} onClick={() => !locked && setSelected(p.id)}
+              <button
+                key={p.id}
+                onClick={() => !locked && setSelected(p.id)}
                 style={{
                   display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6,
-                  padding: '10px 6px',
-                  background: s.bg, border: s.border, borderRadius: 12,
+                  background: 'transparent', border: 'none', padding: 0,
                   cursor: locked ? 'default' : 'pointer',
-                  transition: 'all 0.2s', textAlign: 'center',
-                }}>
+                }}
+              >
                 <div style={{
-                  width: 72, height: 72, borderRadius: '50%',
-                  border: `3px solid ${isSel ? INK : groupColor}`,
-                  overflow: 'hidden', background: '#000', flexShrink: 0,
+                  width: 66, height: 66, borderRadius: '50%', padding: 3,
+                  border: ring === 'transparent' ? 'none' : `3px solid ${ring}`,
+                  background: '#2A2A2A',
+                  overflow: 'hidden', flexShrink: 0,
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  boxSizing: 'content-box',
                 }}>
-                  {hasPhoto ? (
-                    <img src={p.photo} alt={p.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  {p.photo ? (
+                    <img src={p.photo} alt={p.name} style={{
+                      width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%',
+                    }} />
                   ) : (
-                    <span style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 32, color: groupColor }}>
-                      {p.name[0]?.toUpperCase()}
-                    </span>
+                    <span style={{
+                      width: '100%', height: '100%', borderRadius: '50%',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      fontFamily: "'Bebas Neue', sans-serif", fontSize: 28, color: '#FFF',
+                      background: groupColor,
+                    }}>{p.name[0]?.toUpperCase()}</span>
                   )}
                 </div>
                 <span style={{
-                  fontFamily: "'Space Mono', monospace", fontSize: 12, fontWeight: 700, color: INK,
-                  letterSpacing: 0.5, textAlign: 'center', lineHeight: 1.2,
-                  width: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                }}>{p.name.toUpperCase()}</span>
-                {s.label && (
-                  <span style={{
-                    fontFamily: "'Bebas Neue', sans-serif", fontSize: 13,
-                    color: s.labelColor, letterSpacing: 1,
-                  }}>{s.label}</span>
-                )}
+                  fontFamily: "'Departure Mono', 'Space Mono', monospace",
+                  fontSize: 12, color: nameColor, letterSpacing: 0.5,
+                  maxWidth: 78, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                }}>{p.name}</span>
               </button>
             )
           })}
         </div>
 
+        {/* ── Reveal banner ── */}
         {game.roundRevealed && (
           <div style={{
-            marginTop: 12, padding: '12px 14px',
-            border: `2px solid ${selected === correctId ? CORRECT : WRONG}`,
-            background: `${selected === correctId ? CORRECT : WRONG}10`,
+            marginTop: 22, padding: '12px 14px',
+            border: `2px solid ${gotItRight ? GREEN : WRONG}`,
+            background: `${gotItRight ? GREEN : WRONG}15`,
             textAlign: 'center', animation: 'pop 0.4s ease',
           }}>
-            <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 32, letterSpacing: 2, color: selected === correctId ? CORRECT : WRONG }}>
-              {selected === correctId ? '+1 POINT!' : 'NOT QUITE'}
+            <div style={{
+              fontFamily: "'Departure Mono', 'Space Mono', monospace",
+              fontSize: 22, color: gotItRight ? GREEN : WRONG, letterSpacing: 2,
+            }}>
+              {gotItRight ? '+1 POINT!' : 'NOT QUITE'}
             </div>
-            <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 11, color: INK2, marginTop: 2 }}>
+            <div style={{
+              fontFamily: "'Departure Mono', 'Space Mono', monospace",
+              fontSize: 11, color: INK2, marginTop: 4, letterSpacing: 1,
+            }}>
               THAT WAS {onStagePlayers[game.currentFactIdx]?.name?.toUpperCase()}'S FACT
             </div>
           </div>
         )}
 
-        <Dash />
-        {!submitted && !game.roundRevealed && (
-          <InkBtn onClick={handleGuess} disabled={selected === null || submitting}>
-            {submitting ? 'Submitting…' : 'Submit guess →'}
-          </InkBtn>
-        )}
         {submitted && !game.roundRevealed && (
-          <div>
-            <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 11, color: INK2, letterSpacing: 1, textAlign: 'center', marginBottom: 8 }}>
+          <div style={{ marginTop: 18 }}>
+            <div style={{
+              fontFamily: "'Departure Mono', 'Space Mono', monospace",
+              fontSize: 11, color: INK2, letterSpacing: 1, textAlign: 'center', marginBottom: 6,
+            }}>
               {guessCount} OF {totalAudience} PLAYERS HAVE GUESSED
             </div>
-            <div style={{ height: 4, background: DASH, marginBottom: 4 }}>
-              <div style={{ height: '100%', background: INK, width: `${totalAudience > 0 ? (guessCount / totalAudience) * 100 : 0}%`, transition: 'width 1s ease' }} />
+            <div style={{ height: 4, background: DASH }}>
+              <div style={{
+                height: '100%', background: INK,
+                width: `${totalAudience > 0 ? (guessCount / totalAudience) * 100 : 0}%`,
+                transition: 'width 1s ease',
+              }} />
             </div>
           </div>
         )}
-      </Paper>
-    </Screen>
+      </div>
+
+      {/* ── Sticky floating Submit Answer ── */}
+      <div style={{
+        position: 'fixed', left: 0, right: 0, bottom: 0,
+        padding: '16px 16px 22px',
+        display: 'flex', justifyContent: 'center',
+        background: 'linear-gradient(to top, rgba(0,0,0,0.9) 40%, rgba(0,0,0,0))',
+        pointerEvents: 'none', zIndex: 20,
+      }}>
+        <button
+          onClick={handleGuess}
+          disabled={locked || selected === null || submitting}
+          style={{
+            pointerEvents: 'auto',
+            width: '100%', maxWidth: 320,
+            padding: '16px 28px',
+            background: (selected === null || locked) ? '#8E857A' : '#FF4A1C',
+            border: 'none', borderRadius: 999,
+            fontFamily: "'Departure Mono', 'Space Mono', monospace",
+            fontSize: 18, color: '#FFF', letterSpacing: 3,
+            cursor: (locked || selected === null) ? 'default' : 'pointer',
+            opacity: (locked && !submitted) ? 0.5 : 1,
+            boxShadow: (selected !== null && !locked) ? '0 6px 0 rgba(0,0,0,0.25), 0 12px 24px rgba(255,74,28,0.35)' : 'none',
+            transition: 'all 0.2s',
+          }}
+        >
+          {submitting ? 'SUBMITTING…' : submitted && !game.roundRevealed ? 'ANSWER LOCKED IN' : 'SUBMIT ANSWER'}
+        </button>
+      </div>
+    </main>
   )
 }
 

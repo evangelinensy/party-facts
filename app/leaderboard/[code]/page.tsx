@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { VintageBg } from '@/components/VintageBg'
 import { Paper } from '@/components/Paper'
@@ -21,6 +21,7 @@ export default function LeaderboardPage() {
   const router = useRouter()
   const [data, setData] = useState<LeaderboardData | null>(null)
   const [error, setError] = useState('')
+  const cheeredRef = useRef(false)
 
   useEffect(() => {
     Promise.all([
@@ -30,6 +31,15 @@ export default function LeaderboardPage() {
       .then(([lb, gameData]) => setData({ ...lb, groupNames: gameData.game?.groupNames ?? {} }))
       .catch(() => setError('Could not load leaderboard'))
   }, [code])
+
+  // Play a cheer/clap sound once when the leaderboard first loads.
+  useEffect(() => {
+    if (!data || cheeredRef.current || typeof window === 'undefined') return
+    cheeredRef.current = true
+    const cheer = new Audio('/cheer.mp3')
+    cheer.volume = 0.55
+    cheer.play().catch(() => {})
+  }, [data])
 
   if (error) return <Screen><p style={{ fontFamily: "'Space Mono', monospace", color: '#8B1A1A', fontSize: 12 }}>{error}</p></Screen>
   if (!data) return <Screen><p style={{ fontFamily: "'Space Mono', monospace", color: INK2, fontSize: 12 }}>Loading…</p></Screen>
