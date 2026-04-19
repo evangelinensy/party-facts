@@ -52,19 +52,19 @@ function RulesInner() {
           HOW IT WORKS
         </h1>
 
-        <Rule title="Drop your fact">
+        <Rule n={1} title="Drop your fact">
           Share one unexpected true fact about yourself.
         </Rule>
 
-        <Rule title="Your group goes on stage">
+        <Rule n={2} title="Your group goes on stage">
           One group on stage at a time. 60 seconds per person. The crowd asks anything. You answer all questions, no lying.
         </Rule>
 
-        <Rule title="Guess the face behind the fact">
+        <Rule n={3} title="Guess the face behind the fact">
           One fact per person appears on screen. Pick who owns each fact.
         </Rule>
 
-        <Rule title="The reveal" last>
+        <Rule n={4} title="The reveal" last>
           Fact owner revealed. Correct guess = 1 point.
         </Rule>
       </div>
@@ -103,18 +103,25 @@ function RulesInner() {
   )
 }
 
-function Rule({ title, children, last }: { title: string; children: React.ReactNode; last?: boolean }) {
+function Rule({ n, title, children, last }: { n: number; title: string; children: React.ReactNode; last?: boolean }) {
   return (
-    <div style={{ marginBottom: last ? 0 : 22 }}>
+    <div style={{ display: 'flex', gap: 10, marginBottom: last ? 0 : 22 }}>
       <div style={{
         fontFamily: "'Space Mono', monospace",
         fontSize: 16, fontWeight: 700, color: '#000',
-        marginBottom: 4,
-      }}>{title}</div>
-      <div style={{
-        fontFamily: "'Space Mono', monospace",
-        fontSize: 14, color: '#000', lineHeight: 1.5,
-      }}>{children}</div>
+        lineHeight: 1.35, flexShrink: 0,
+      }}>{n}.</div>
+      <div style={{ flex: 1 }}>
+        <div style={{
+          fontFamily: "'Space Mono', monospace",
+          fontSize: 16, fontWeight: 700, color: '#000',
+          marginBottom: 4, lineHeight: 1.35,
+        }}>{title}</div>
+        <div style={{
+          fontFamily: "'Space Mono', monospace",
+          fontSize: 14, color: '#000', lineHeight: 1.5,
+        }}>{children}</div>
+      </div>
     </div>
   )
 }

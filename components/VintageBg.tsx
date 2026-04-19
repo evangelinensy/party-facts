@@ -1,9 +1,14 @@
 'use client'
+import { useMemo } from 'react'
 import { BG_CONFIG } from '@/lib/design'
 
+const IMAGES = ['/bg/bg1.avif','/bg/bg2.avif','/bg/bg3.avif','/bg/bg4.avif','/bg/bg5.avif','/bg/bg6.avif','/bg/bg7.avif']
+
+// Stable per-mount pick so the image doesn't thrash on re-renders but rotates between visits.
 export function VintageBg({ screen }: { screen: string }) {
   const cfg = BG_CONFIG[screen] ?? BG_CONFIG.home
-  const url = `https://images.unsplash.com/photo-${cfg.photo}?w=420&h=900&fit=crop&q=75&auto=format`
+  const url = useMemo(() => IMAGES[Math.floor(Math.random() * IMAGES.length)], [])
+
   return (
     <div style={{ position: 'absolute', inset: 0, overflow: 'hidden', zIndex: 0 }}>
       <div style={{

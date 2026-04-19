@@ -21,19 +21,26 @@ function LobbyTile({ name, group, fresh, photo }: { name: string; group: string;
   return (
     <div style={{
       display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6,
-      width: 68,
+      width: 72,
       opacity: vis ? 1 : 0, transform: vis ? 'none' : 'translateY(-6px)',
       transition: 'all 0.35s ease',
     }}>
       {photo ? (
         <div style={{
-          width: 48, height: 48, border: `2px solid ${color}`,
+          width: 56, height: 56, borderRadius: '50%',
+          border: `2px solid ${color}`,
           overflow: 'hidden', flexShrink: 0, background: '#000',
         }}>
           <img src={photo} alt={name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
         </div>
       ) : (
-        <GroupAvatar initial={name[0]} color={color} size={48} />
+        <div style={{
+          width: 56, height: 56, borderRadius: '50%',
+          border: `2px solid ${color}`,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontFamily: "'Bebas Neue', sans-serif",
+          fontSize: 26, color, flexShrink: 0,
+        }}>{name[0]?.toUpperCase()}</div>
       )}
       <span style={{
         fontFamily: "'Space Mono', monospace", fontSize: 11, fontWeight: 700, color: INK,
