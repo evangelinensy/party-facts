@@ -1,5 +1,6 @@
 'use client'
 import { useEffect, useState } from 'react'
+import { INK } from '@/lib/design'
 
 export function Timer({ resetKey }: { resetKey: string | number }) {
   const [seconds, setSeconds] = useState(60)
@@ -15,18 +16,16 @@ export function Timer({ resetKey }: { resetKey: string | number }) {
     return () => clearInterval(id)
   }, [resetKey])
 
-  const pct = (seconds / 60) * 100
-  const color = seconds > 20 ? 'text-emerald-400' : seconds > 10 ? 'text-amber-400' : 'text-red-400'
+  const color = seconds > 30 ? INK : seconds > 10 ? '#7A3A08' : '#8B1A1A'
 
   return (
-    <div className="flex flex-col items-center gap-1">
-      <span className={`text-4xl font-bold tabular-nums ${color}`}>{seconds}</span>
-      <div className="w-32 h-2 bg-white/20 rounded-full overflow-hidden">
-        <div
-          className={`h-full rounded-full transition-all duration-1000 ${seconds > 20 ? 'bg-emerald-400' : seconds > 10 ? 'bg-amber-400' : 'bg-red-400'}`}
-          style={{ width: `${pct}%` }}
-        />
-      </div>
+    <div style={{ textAlign: 'center' }}>
+      <div style={{
+        fontFamily: "'Bebas Neue', sans-serif",
+        fontSize: 88, lineHeight: 1, color,
+        letterSpacing: 4,
+        transition: 'color 1s ease',
+      }}>{String(seconds).padStart(2, '0')}</div>
     </div>
   )
 }

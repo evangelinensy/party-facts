@@ -7,7 +7,7 @@ export async function GET(req: Request, { params }: { params: { code: string } }
 
   const players = [...game.players]
     .sort((a, b) => b.score - a.score)
-    .map(p => ({ id: p.id, name: p.name, groupLetter: p.groupLetter, score: p.score }))
+    .map(p => ({ id: p.id, name: p.name, groupLetter: p.groupLetter, score: p.score, instagram: p.instagram ?? '', telegram: p.telegram ?? '' }))
 
   const groupMap = new Map<string, number>()
   for (const p of game.players) {

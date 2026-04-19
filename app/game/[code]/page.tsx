@@ -1,28 +1,29 @@
 'use client'
 import { useEffect, useState, useRef } from 'react'
 import { useRouter, useParams } from 'next/navigation'
-import { useGameState } from '@/hooks/useGameState'
-import { FactBox } from '@/components/FactBox'
-import { GuessButton } from '@/components/GuessButton'
+import { useGameState, GameState } from '@/hooks/useGameState'
+import { VintageBg } from '@/components/VintageBg'
+import { Paper } from '@/components/Paper'
+import { Dash } from '@/components/Dash'
+import { ReceiptLabel } from '@/components/ReceiptLabel'
+import { BigStamp } from '@/components/BigStamp'
+import { InkBtn } from '@/components/InkBtn'
+import { GroupAvatar } from '@/components/GroupAvatar'
 import { Timer } from '@/components/Timer'
-import { GroupBadge } from '@/components/GroupBadge'
+import { INK, INK2, DASH, PAPER, GROUPS, CORRECT, WRONG } from '@/lib/design'
+import { Player } from '@/lib/types'
 
-type Identity = {
-  isHost: boolean
-  hostToken?: string
-  playerToken?: string
-  playerId?: string
-  playerGroup?: string
-  gameCode: string
-}
+type Identity = { isHost: boolean; hostToken?: string; playerToken?: string; playerId?: string; playerGroup?: string; gameCode: string }
 
 export default function GamePage() {
   const { code } = useParams<{ code: string }>()
   const router = useRouter()
   const [identity, setIdentity] = useState<Identity | null>(null)
-  const [selectedPlayer, setSelectedPlayer] = useState<string | null>(null)
+  const [selected, setSelected] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(false)
+  const [hostRevealed, setHostRevealed] = useState(false)
+  const prevRoundKey = useRef('')
 
   useEffect(() => {
     const raw = localStorage.getItem('pf_identity')
@@ -32,307 +33,267 @@ export default function GamePage() {
   const token = identity?.isHost ? identity.hostToken : identity?.playerToken
   const { data, error, refetch } = useGameState(code, token)
 
-  const prevRoundKey = useRef<string>('')
-
   useEffect(() => {
     if (!data) return
-    if (data.game.status === 'finished') { router.push(`/leaderboard/${code}`); return }
-    const roundKey = `${data.game.currentGroupIdx}_${data.game.currentFactIdx}`
-    if (roundKey !== prevRoundKey.current) {
-      prevRoundKey.current = roundKey
-      setSelectedPlayer(null)
+    if (data.game.status === 'finished') { router.push(`/social/${code}`); return }
+    const rk = `${data.game.currentGroupIdx}_${data.game.currentFactIdx}`
+    if (rk !== prevRoundKey.current) {
+      prevRoundKey.current = rk
+      setSelected(null)
       setSubmitted(false)
+      setHostRevealed(false)
     }
     if (data.myGuess) setSubmitted(true)
   }, [data, code, router])
 
   async function handleReveal() {
-    await fetch(`/api/games/${code}/reveal`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${identity?.hostToken}` },
-    })
+    await fetch(`/api/games/${code}/reveal`, { method: 'POST', headers: { Authorization: `Bearer ${identity?.hostToken}` } })
+    setHostRevealed(true)
     refetch()
   }
 
   async function handleAdvance() {
-    await fetch(`/api/games/${code}/advance`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${identity?.hostToken}` },
-    })
+    await fetch(`/api/games/${code}/advance`, { method: 'POST', headers: { Authorization: `Bearer ${identity?.hostToken}` } })
+    setHostRevealed(false)
     refetch()
   }
 
   async function handleGuess() {
-    if (!selectedPlayer || submitting) return
+    if (selected === null || submitting) return
     setSubmitting(true)
     try {
       await fetch(`/api/games/${code}/guess`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${identity?.playerToken}`,
-        },
-        body: JSON.stringify({ guessedPlayerId: selectedPlayer }),
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${identity?.playerToken}` },
+        body: JSON.stringify({ guessedPlayerId: selected }),
       })
       setSubmitted(true)
       refetch()
-    } finally {
-      setSubmitting(false)
-    }
+    } finally { setSubmitting(false) }
   }
 
-  if (error) return <Screen><p className="text-red-400">{error}</p></Screen>
-  if (!data || !identity) return <Screen><p className="text-white/60">Loading...</p></Screen>
+  if (error) return <Screen bg="audience"><p style={{ fontFamily: "'Space Mono', monospace", color: '#8B1A1A', fontSize: 12 }}>{error}</p></Screen>
+  if (!data || !identity) return <Screen bg="audience"><p style={{ fontFamily: "'Space Mono', monospace", color: INK2, fontSize: 12 }}>Loading…</p></Screen>
 
-  const { game, onStagePlayers, audiencePlayers, guessCount, totalAudience, currentFact } = data
+  const { game, onStagePlayers, guessCount, totalAudience, currentFact } = data
   const currentGroup = game.groupOrder[game.currentGroupIdx]
-  const timerKey = `${game.currentGroupIdx}_${game.currentFactIdx}`
+  const groupColor   = GROUPS[currentGroup]?.color ?? INK
+  const groupName    = game.groupNames?.[currentGroup] || GROUPS[currentGroup]?.defaultName || `Group ${currentGroup}`
+  const timerKey     = `${game.currentGroupIdx}_${game.currentFactIdx}`
+  const factCount    = onStagePlayers.length
+  const isHost       = identity.isHost
+  const isOnStage    = !isHost && identity.playerGroup === currentGroup
 
-  const isHost = identity.isHost
-  const isOnStage = !isHost && identity.playerGroup === currentGroup
+  if (isHost) return (
+    <Screen bg="host">
+      <Paper tilt={0.3}>
+        <div style={{ textAlign: 'center' }}>
+          <BigStamp>Host View</BigStamp>
+          <GroupStamp color={groupColor} label={`${groupName} — Fact ${game.currentFactIdx + 1} of ${factCount}`} />
+        </div>
+        <Dash />
+        <ReceiptLabel>Current fact — host only</ReceiptLabel>
+        <div style={{ margin: '8px 0', padding: '12px', background: '#7A3A0810', border: '1.5px solid #7A3A08' }}>
+          <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 14, fontWeight: 700, color: '#5A2A04', lineHeight: 1.55 }}>
+            {onStagePlayers[game.currentFactIdx]?.fact ?? '—'}
+          </div>
+          <div style={{ marginTop: 8, fontFamily: "'Space Mono', monospace", fontSize: 11, color: INK2 }}>
+            → BELONGS TO: <strong style={{ color: INK }}>{onStagePlayers[game.currentFactIdx]?.name?.toUpperCase()}</strong>
+          </div>
+        </div>
+        <Dash />
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+          <ReceiptLabel>Guesses received</ReceiptLabel>
+          <span style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 22, color: INK, letterSpacing: 2 }}>{guessCount} / {totalAudience}</span>
+        </div>
+        <div style={{ height: 4, background: DASH }}>
+          <div style={{ height: '100%', background: INK, width: `${totalAudience > 0 ? (guessCount / totalAudience) * 100 : 0}%`, transition: 'width 0.5s' }} />
+        </div>
+        <Dash />
+        <InkBtn onClick={handleReveal} disabled={game.roundRevealed}>{game.roundRevealed ? '✓ Answers revealed' : 'Reveal answers'}</InkBtn>
+        {game.roundRevealed && (
+          <div style={{ marginTop: 12, padding: '12px 14px', border: `2px solid ${CORRECT}`, background: `${CORRECT}10`, animation: 'slideUp 0.3s ease' }}>
+            <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 20, color: CORRECT, letterSpacing: 2 }}>Round Result</div>
+            <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 12, color: INK, marginTop: 4, lineHeight: 1.6 }}>
+              Fact belonged to <strong>{onStagePlayers[game.currentFactIdx]?.name}</strong>
+            </div>
+          </div>
+        )}
+        <div style={{ marginTop: 10 }}>
+          <InkBtn onClick={handleAdvance} outline={!game.roundRevealed} disabled={!game.roundRevealed}>Next fact →</InkBtn>
+        </div>
+      </Paper>
+    </Screen>
+  )
 
-  if (isHost) {
-    return (
-      <Screen>
-        <HostView
-          game={game}
-          onStagePlayers={onStagePlayers}
-          guessCount={guessCount}
-          totalAudience={totalAudience}
-          timerKey={timerKey}
-          onReveal={handleReveal}
-          onAdvance={handleAdvance}
-        />
-      </Screen>
-    )
-  }
+  if (isOnStage) return (
+    <Screen bg="onstage">
+      <Paper tilt={-0.8}>
+        <div style={{ textAlign: 'center' }}>
+          <GroupStamp color={groupColor} label={`${groupName} — On Stage`} />
+          <ReceiptLabel center>Fact {game.currentFactIdx + 1} of {factCount}</ReceiptLabel>
+          <ProgressDots total={factCount} current={game.currentFactIdx} />
+        </div>
+        <Dash />
+        <div style={{ textAlign: 'center', padding: '8px 0' }}>
+          <ReceiptLabel center>Time Remaining</ReceiptLabel>
+          <Timer resetKey={timerKey} />
+          <ReceiptLabel center>seconds</ReceiptLabel>
+        </div>
+        <Dash />
+        <ReceiptLabel>Your team on stage</ReceiptLabel>
+        <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 6 }}>
+          {onStagePlayers.map((p, i) => {
+            const active = i === game.currentFactIdx
+            return (
+              <div key={p.id} style={{
+                display: 'flex', alignItems: 'center', gap: 10,
+                padding: '8px 10px',
+                background: active ? `${groupColor}15` : 'transparent',
+                border: active ? `2px solid ${groupColor}` : `1px dashed ${DASH}`,
+                transition: 'all 0.3s',
+              }}>
+                <GroupAvatar initial={p.name[0]} color={groupColor} size={30} />
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 14, fontWeight: 700, color: INK, letterSpacing: 0.5 }}>{p.name.toUpperCase()}</div>
+                  {active && <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: groupColor, letterSpacing: 1 }}>● ACTIVE FACT</div>}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+        <Dash />
+        <div style={{ padding: '8px 10px', border: `1px dashed ${DASH}`, fontFamily: "'Space Mono', monospace", fontSize: 11, color: INK2, lineHeight: 1.6, textAlign: 'center', letterSpacing: 0.5 }}>
+          ANSWER QUESTIONS HONESTLY<br />THE AUDIENCE IS GUESSING YOUR FACT
+        </div>
+        {game.roundRevealed && (
+          <div style={{ marginTop: 12, padding: '10px 12px', border: `1.5px solid ${groupColor}`, background: `${groupColor}10`, textAlign: 'center' }}>
+            <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 12, color: INK2 }}>Fact revealed!</div>
+          </div>
+        )}
+      </Paper>
+    </Screen>
+  )
 
-  if (isOnStage) {
-    return (
-      <Screen>
-        <OnStageView
-          game={game}
-          onStagePlayers={onStagePlayers}
-          myPlayerId={identity.playerId!}
-          timerKey={timerKey}
-        />
-      </Screen>
-    )
+  // Audience
+  const correctId = game.roundRevealed ? onStagePlayers[game.currentFactIdx]?.id : null
+
+  function btnStyle(p: Player) {
+    const isSel   = selected === p.id
+    const isOwner = p.id === correctId
+    const locked  = submitted || game.roundRevealed
+    if (game.roundRevealed && isOwner)           return { border: `2px solid ${CORRECT}`, bg: `${CORRECT}15`, label: 'CORRECT ✓', labelColor: CORRECT }
+    if (game.roundRevealed && isSel && !isOwner) return { border: `2px solid ${WRONG}`,   bg: `${WRONG}15`,   label: 'WRONG ✗',   labelColor: WRONG }
+    if (isSel)                                   return { border: `2px solid ${INK}`,      bg: `${INK}08`,     label: null,        labelColor: INK }
+    return { border: `1.5px dashed ${DASH}`, bg: 'transparent', label: null, labelColor: INK }
   }
 
   return (
-    <Screen>
-      <AudienceView
-        game={game}
-        onStagePlayers={onStagePlayers}
-        currentFact={currentFact}
-        myPlayerId={identity.playerId!}
-        selectedPlayer={selectedPlayer}
-        submitted={submitted}
-        submitting={submitting}
-        guessCount={guessCount}
-        totalAudience={totalAudience}
-        timerKey={timerKey}
-        onSelect={setSelectedPlayer}
-        onSubmit={handleGuess}
-      />
+    <Screen bg="audience">
+      <Paper tilt={0.5}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
+          <GroupStamp color={groupColor} label={`${groupName} on stage`} small />
+          <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 32, color: INK, lineHeight: 1, letterSpacing: 2 }}>
+            <Timer resetKey={timerKey} />
+          </div>
+        </div>
+        <Dash />
+
+        <div>
+          <ReceiptLabel>The fact</ReceiptLabel>
+          <div style={{ margin: '8px 0 0', padding: '14px 12px', border: `2px solid ${INK}`, background: `${INK}05` }}>
+            {game.roundRevealed && currentFact ? (
+              <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 15, fontWeight: 700, color: INK, lineHeight: 1.55 }}>{currentFact}</div>
+            ) : (
+              <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 13, color: INK2, lineHeight: 1.55 }}>Who said this? Pick the person below.</div>
+            )}
+          </div>
+        </div>
+        <Dash />
+
+        <ReceiptLabel>Whose fact is this?</ReceiptLabel>
+        <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 6 }}>
+          {onStagePlayers.map(p => {
+            const s = btnStyle(p)
+            return (
+              <button key={p.id} onClick={() => !(submitted || game.roundRevealed) && setSelected(p.id)}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 10,
+                  padding: '10px 12px',
+                  background: s.bg, border: s.border,
+                  cursor: (submitted || game.roundRevealed) ? 'default' : 'pointer',
+                  transition: 'all 0.25s', width: '100%', textAlign: 'left',
+                }}>
+                <GroupAvatar initial={p.name[0]} color={groupColor} size={32} />
+                <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 14, fontWeight: 700, color: INK, flex: 1, letterSpacing: 0.5 }}>
+                  {p.name.toUpperCase()}
+                </span>
+                {s.label && <span style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 16, color: s.labelColor, letterSpacing: 1 }}>{s.label}</span>}
+                {!game.roundRevealed && selected === p.id && <div style={{ width: 14, height: 14, background: INK, flexShrink: 0 }} />}
+              </button>
+            )
+          })}
+        </div>
+
+        {game.roundRevealed && (
+          <div style={{
+            marginTop: 12, padding: '12px 14px',
+            border: `2px solid ${selected === correctId ? CORRECT : WRONG}`,
+            background: `${selected === correctId ? CORRECT : WRONG}10`,
+            textAlign: 'center', animation: 'pop 0.4s ease',
+          }}>
+            <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 32, letterSpacing: 2, color: selected === correctId ? CORRECT : WRONG }}>
+              {selected === correctId ? '+1 POINT!' : 'NOT QUITE'}
+            </div>
+            <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 11, color: INK2, marginTop: 2 }}>
+              THAT WAS {onStagePlayers[game.currentFactIdx]?.name?.toUpperCase()}'S FACT
+            </div>
+          </div>
+        )}
+
+        <Dash />
+        {!submitted && !game.roundRevealed && (
+          <InkBtn onClick={handleGuess} disabled={selected === null || submitting}>
+            {submitting ? 'Submitting…' : 'Submit guess →'}
+          </InkBtn>
+        )}
+        {submitted && !game.roundRevealed && (
+          <div>
+            <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 11, color: INK2, letterSpacing: 1, textAlign: 'center', marginBottom: 8 }}>
+              {guessCount} OF {totalAudience} PLAYERS HAVE GUESSED
+            </div>
+            <div style={{ height: 4, background: DASH, marginBottom: 4 }}>
+              <div style={{ height: '100%', background: INK, width: `${totalAudience > 0 ? (guessCount / totalAudience) * 100 : 0}%`, transition: 'width 1s ease' }} />
+            </div>
+          </div>
+        )}
+      </Paper>
     </Screen>
   )
 }
 
-type GameState = NonNullable<ReturnType<typeof useGameState>['data']>
-
-function groupDisplayName(game: GameState['game'], letter: string) {
-  return game.groupNames?.[letter] || `Group ${letter}`
-}
-
-function HostView({ game, onStagePlayers, guessCount, totalAudience, timerKey, onReveal, onAdvance }: {
-  game: GameState['game']
-  onStagePlayers: GameState['onStagePlayers']
-  guessCount: number
-  totalAudience: number
-  timerKey: string
-  onReveal: () => void
-  onAdvance: () => void
-}) {
+function GroupStamp({ color, label, small }: { color: string; label: string; small?: boolean }) {
   return (
-    <div className="w-full max-w-sm space-y-5">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <GroupBadge group={game.groupOrder[game.currentGroupIdx]} />
-          <span className="text-white font-semibold">{groupDisplayName(game, game.groupOrder[game.currentGroupIdx])} on stage</span>
-        </div>
-        <Timer resetKey={timerKey} />
-      </div>
-
-      <div className="bg-white/10 rounded-2xl p-4">
-        <p className="text-white/60 text-xs uppercase tracking-widest mb-2">Current Fact Player</p>
-        <p className="text-white text-xl font-bold">{onStagePlayers[game.currentFactIdx]?.name ?? '—'}</p>
-        {game.roundRevealed && (
-          <p className="text-emerald-300 text-sm mt-1">"{onStagePlayers[game.currentFactIdx]?.fact}"</p>
-        )}
-      </div>
-
-      <div className="bg-white/10 rounded-2xl p-4 flex items-center justify-between">
-        <span className="text-white/60">Guesses</span>
-        <span className="text-white font-bold text-lg">{guessCount} / {totalAudience}</span>
-      </div>
-
-      {!game.roundRevealed ? (
-        <button
-          onClick={onReveal}
-          className="w-full py-4 bg-amber-500 hover:bg-amber-400 text-white font-bold text-lg rounded-xl min-h-[56px]"
-        >
-          Reveal Answer
-        </button>
-      ) : (
-        <button
-          onClick={onAdvance}
-          className="w-full py-4 bg-indigo-500 hover:bg-indigo-400 text-white font-bold text-lg rounded-xl min-h-[56px]"
-        >
-          Next →
-        </button>
-      )}
+    <div style={{ display: 'inline-block', border: `${small ? 2 : 3}px solid ${color}`, padding: small ? '2px 10px' : '3px 14px', marginBottom: 8 }}>
+      <span style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: small ? 13 : 14, letterSpacing: 4, color }}>{label.toUpperCase()}</span>
     </div>
   )
 }
 
-function OnStageView({ game, onStagePlayers, myPlayerId, timerKey }: {
-  game: GameState['game']
-  onStagePlayers: GameState['onStagePlayers']
-  myPlayerId: string
-  timerKey: string
-}) {
-  const currentFactPlayer = onStagePlayers[game.currentFactIdx]
+function ProgressDots({ total, current }: { total: number; current: number }) {
   return (
-    <div className="w-full max-w-sm space-y-5">
-      <div className="text-center py-4 bg-amber-500/20 rounded-2xl">
-        <p className="text-amber-300 font-bold text-lg">{groupDisplayName(game, game.groupOrder[game.currentGroupIdx])} is on stage!</p>
-        <p className="text-white/60 text-sm mt-1">Answer questions honestly</p>
-      </div>
-
-      <Timer resetKey={timerKey} />
-
-      <div className="space-y-2">
-        <p className="text-white/60 text-xs uppercase tracking-widest">On Stage</p>
-        {onStagePlayers.map((p, i) => (
-          <div
-            key={p.id}
-            className={`flex items-center gap-3 px-4 py-3 rounded-xl ${i === game.currentFactIdx ? 'bg-amber-500/30 ring-2 ring-amber-400' : 'bg-white/10'}`}
-          >
-            <GroupBadge group={p.groupLetter} />
-            <span className="text-white font-semibold flex-1">{p.name}</span>
-            {p.id === myPlayerId && <span className="text-white/40 text-xs">you</span>}
-            {i === game.currentFactIdx && <span className="text-amber-300 text-xs font-bold">← their fact</span>}
-          </div>
-        ))}
-      </div>
-
-      {game.roundRevealed && currentFactPlayer && (
-        <div className="bg-white/10 rounded-2xl p-4">
-          <p className="text-white/60 text-xs uppercase tracking-widest mb-1">The fact was</p>
-          <p className="text-white font-semibold">{currentFactPlayer.fact}</p>
-        </div>
-      )}
+    <div style={{ display: 'flex', gap: 4, justifyContent: 'center', margin: '6px 0' }}>
+      {Array.from({ length: total }).map((_, i) => (
+        <div key={i} style={{ width: 24, height: 4, background: i <= current ? INK : DASH }} />
+      ))}
     </div>
   )
 }
 
-function AudienceView({ game, onStagePlayers, currentFact, myPlayerId, selectedPlayer, submitted, submitting, guessCount, totalAudience, timerKey, onSelect, onSubmit }: {
-  game: GameState['game']
-  onStagePlayers: GameState['onStagePlayers']
-  currentFact: string | null
-  myPlayerId: string
-  selectedPlayer: string | null
-  submitted: boolean
-  submitting: boolean
-  guessCount: number
-  totalAudience: number
-  timerKey: string
-  onSelect: (id: string) => void
-  onSubmit: () => void
-}) {
-  const correctId = game.roundRevealed ? onStagePlayers[game.currentFactIdx]?.id : null
-
-  function getButtonState(playerId: string) {
-    if (!game.roundRevealed) {
-      return selectedPlayer === playerId ? 'selected' : 'idle'
-    }
-    if (playerId === correctId) {
-      return selectedPlayer === playerId ? 'correct' : 'missed'
-    }
-    if (playerId === selectedPlayer) return 'wrong'
-    return 'idle'
-  }
-
+function Screen({ children, bg }: { children: React.ReactNode; bg: string }) {
   return (
-    <div className="w-full max-w-sm space-y-5">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <GroupBadge group={game.groupOrder[game.currentGroupIdx]} />
-          <span className="text-white font-semibold">{groupDisplayName(game, game.groupOrder[game.currentGroupIdx])}</span>
-        </div>
-        <Timer resetKey={timerKey} />
-      </div>
-
-      {game.roundRevealed && currentFact ? (
-        <FactBox fact={currentFact} />
-      ) : (
-        <div className="bg-white/10 rounded-2xl p-6">
-          <p className="text-white/40 text-xs uppercase tracking-widest mb-2">The Fact</p>
-          <p className="text-white text-xl font-bold">Who said this?</p>
-          <p className="text-white/60 text-sm mt-1">Pick the on-stage person whose fact this is</p>
-        </div>
-      )}
-
-      <div className="space-y-2">
-        {onStagePlayers.map(p => (
-          <GuessButton
-            key={p.id}
-            name={p.name}
-            playerId={p.id}
-            state={getButtonState(p.id)}
-            disabled={submitted || game.roundRevealed}
-            onSelect={onSelect}
-          />
-        ))}
-      </div>
-
-      {!submitted && !game.roundRevealed && (
-        <button
-          onClick={onSubmit}
-          disabled={!selectedPlayer || submitting}
-          className="w-full py-4 bg-indigo-500 hover:bg-indigo-400 disabled:opacity-40 text-white font-bold text-lg rounded-xl min-h-[56px]"
-        >
-          {submitting ? 'Submitting...' : 'Lock in Guess'}
-        </button>
-      )}
-
-      {submitted && !game.roundRevealed && (
-        <div className="bg-white/10 rounded-2xl p-4 text-center">
-          <p className="text-white/60">{guessCount} / {totalAudience} have guessed</p>
-        </div>
-      )}
-
-      {game.roundRevealed && (
-        <div className={`rounded-2xl p-4 text-center ${selectedPlayer === correctId ? 'bg-emerald-500/20' : 'bg-red-500/20'}`}>
-          {selectedPlayer === correctId ? (
-            <p className="text-emerald-300 font-bold text-lg">+1 point! Correct!</p>
-          ) : (
-            <p className="text-red-300 font-bold text-lg">Wrong guess</p>
-          )}
-          <p className="text-white/60 text-sm mt-1">
-            It was {onStagePlayers[game.currentFactIdx]?.name}
-          </p>
-        </div>
-      )}
-    </div>
-  )
-}
-
-function Screen({ children }: { children: React.ReactNode }) {
-  return (
-    <main className="min-h-screen bg-gradient-to-br from-indigo-900 via-purple-900 to-gray-900 flex items-center justify-center p-4">
+    <main style={{ position: 'relative', minHeight: '100vh', display: 'flex', flexDirection: 'column', justifyContent: 'flex-start', padding: '56px 12px 40px' }}>
+      <VintageBg screen={bg} />
       {children}
     </main>
   )

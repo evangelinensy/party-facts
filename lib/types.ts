@@ -8,6 +8,8 @@ export type Player = {
   fact: string
   score: number
   joinedAt: number
+  instagram?: string
+  telegram?: string
 }
 
 export type PrefilledGuest = {
