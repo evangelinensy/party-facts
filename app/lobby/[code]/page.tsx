@@ -12,7 +12,7 @@ import { INK, INK2, DASH, GROUPS } from '@/lib/design'
 
 type Identity = { isHost: boolean; hostToken?: string; playerToken?: string; gameCode: string }
 
-function LobbyTile({ name, group, fresh }: { name: string; group: string; fresh: boolean }) {
+function LobbyTile({ name, group, fresh, photo }: { name: string; group: string; fresh: boolean; photo?: string }) {
   const [vis, setVis] = useState(!fresh)
   useEffect(() => {
     if (fresh) { const t = setTimeout(() => setVis(true), 80); return () => clearTimeout(t) }
@@ -25,7 +25,16 @@ function LobbyTile({ name, group, fresh }: { name: string; group: string; fresh:
       opacity: vis ? 1 : 0, transform: vis ? 'none' : 'translateY(-6px)',
       transition: 'all 0.35s ease',
     }}>
-      <GroupAvatar initial={name[0]} color={color} size={48} />
+      {photo ? (
+        <div style={{
+          width: 48, height: 48, border: `2px solid ${color}`,
+          overflow: 'hidden', flexShrink: 0, background: '#000',
+        }}>
+          <img src={photo} alt={name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+        </div>
+      ) : (
+        <GroupAvatar initial={name[0]} color={color} size={48} />
+      )}
       <span style={{
         fontFamily: "'Space Mono', monospace", fontSize: 11, fontWeight: 700, color: INK,
         letterSpacing: 0.5, textAlign: 'center', lineHeight: 1.2,
@@ -113,7 +122,7 @@ export default function LobbyPage() {
             </div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, justifyContent: 'flex-start' }}>
               {members.map((p, i) => (
-                <LobbyTile key={p.id} name={p.name} group={p.groupLetter} fresh={i === members.length - 1 && players.length > prevCount} />
+                <LobbyTile key={p.id} name={p.name} group={p.groupLetter} photo={p.photo} fresh={i === members.length - 1 && players.length > prevCount} />
               ))}
             </div>
           </div>

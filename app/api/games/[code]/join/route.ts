@@ -12,7 +12,7 @@ export async function POST(req: Request, { params }: { params: { code: string } 
   if (game.status !== 'lobby') return NextResponse.json({ error: 'Game already started' }, { status: 400 })
 
   const body = await req.json().catch(() => ({}))
-  const { name, group, fact } = body
+  const { name, group, fact, photo } = body
 
   if (!name?.trim() || !group || !fact?.trim()) {
     return NextResponse.json({ error: 'name, group, and fact are required' }, { status: 400 })
@@ -30,6 +30,7 @@ export async function POST(req: Request, { params }: { params: { code: string } 
     fact: fact.trim(),
     score: 0,
     joinedAt: Date.now(),
+    ...(typeof photo === 'string' && photo.startsWith('data:image/') && photo.length < 600_000 ? { photo } : {}),
   }
 
   await setGame({ ...game, players: [...game.players, player] })

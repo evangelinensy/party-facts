@@ -10,6 +10,7 @@ export type Player = {
   joinedAt: number
   instagram?: string
   telegram?: string
+  photo?: string
 }
 
 export type PrefilledGuest = {
