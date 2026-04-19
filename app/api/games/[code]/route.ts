@@ -20,8 +20,10 @@ export async function GET(req: Request, { params }: { params: { code: string } }
 
   const tokenPayload = getTokenFromHeader(req)
   const myPlayerId = tokenPayload?.role === 'player' ? tokenPayload.playerId : null
+  const me = myPlayerId ? game.players.find(p => p.id === myPlayerId) : null
 
   const onStageGroup = game.status === 'playing' ? getCurrentOnStageGroup(game) : null
+  const viewerIsOnStage = !!(me && onStageGroup && me.groupLetter === onStageGroup)
   const onStagePlayers = game.status === 'playing' ? getOnStagePlayers(game) : []
   const audiencePlayers = game.status === 'playing' ? getAudiencePlayers(game) : []
   const factPlayer = game.status === 'playing' ? getCurrentFactPlayer(game) : null
@@ -61,7 +63,7 @@ export async function GET(req: Request, { params }: { params: { code: string } }
     players,
     onStagePlayers: onStagePlayers.map(sanitizeFact),
     audiencePlayers,
-    currentFact: game.roundRevealed && factPlayer ? factPlayer.fact : null,
+    currentFact: factPlayer && !viewerIsOnStage ? factPlayer.fact : null,
     currentFactPlayerId: game.roundRevealed && factPlayer ? factPlayer.id : null,
     currentFactPlayerName: game.roundRevealed && factPlayer ? factPlayer.name : null,
     guessCount: roundGuesses.length,

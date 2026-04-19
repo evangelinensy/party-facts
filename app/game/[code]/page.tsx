@@ -199,37 +199,71 @@ export default function GamePage() {
         </div>
         <Dash />
 
-        <div>
-          <ReceiptLabel>The fact</ReceiptLabel>
-          <div style={{ margin: '8px 0 0', padding: '14px 12px', border: `2px solid ${INK}`, background: `${INK}05` }}>
-            {game.roundRevealed && currentFact ? (
-              <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 15, fontWeight: 700, color: INK, lineHeight: 1.55 }}>{currentFact}</div>
-            ) : (
-              <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 13, color: INK2, lineHeight: 1.55 }}>Who said this? Pick the person below.</div>
-            )}
+        <ReceiptLabel center>The fact</ReceiptLabel>
+        <div style={{
+          margin: '8px 0 4px',
+          padding: '22px 18px',
+          border: `2.5px solid ${INK}`,
+          background: '#FFF8E8',
+          textAlign: 'center',
+          minHeight: 120,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>
+          <div style={{
+            fontFamily: "'Space Mono', monospace",
+            fontSize: 17, fontWeight: 700, color: INK, lineHeight: 1.5,
+          }}>
+            {currentFact ?? 'Loading…'}
           </div>
         </div>
         <Dash />
 
-        <ReceiptLabel>Whose fact is this?</ReceiptLabel>
-        <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 6 }}>
+        <ReceiptLabel center>Whose fact is this? Tap to guess.</ReceiptLabel>
+        <div style={{
+          marginTop: 10,
+          display: 'grid',
+          gridTemplateColumns: `repeat(${Math.min(onStagePlayers.length, 3)}, 1fr)`,
+          gap: 10,
+        }}>
           {onStagePlayers.map(p => {
             const s = btnStyle(p)
+            const locked = submitted || game.roundRevealed
+            const isSel = selected === p.id
+            const hasPhoto = !!p.photo
             return (
-              <button key={p.id} onClick={() => !(submitted || game.roundRevealed) && setSelected(p.id)}
+              <button key={p.id} onClick={() => !locked && setSelected(p.id)}
                 style={{
-                  display: 'flex', alignItems: 'center', gap: 10,
-                  padding: '10px 12px',
-                  background: s.bg, border: s.border,
-                  cursor: (submitted || game.roundRevealed) ? 'default' : 'pointer',
-                  transition: 'all 0.25s', width: '100%', textAlign: 'left',
+                  display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6,
+                  padding: '10px 6px',
+                  background: s.bg, border: s.border, borderRadius: 12,
+                  cursor: locked ? 'default' : 'pointer',
+                  transition: 'all 0.2s', textAlign: 'center',
                 }}>
-                <GroupAvatar initial={p.name[0]} color={groupColor} size={32} />
-                <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 14, fontWeight: 700, color: INK, flex: 1, letterSpacing: 0.5 }}>
-                  {p.name.toUpperCase()}
-                </span>
-                {s.label && <span style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 16, color: s.labelColor, letterSpacing: 1 }}>{s.label}</span>}
-                {!game.roundRevealed && selected === p.id && <div style={{ width: 14, height: 14, background: INK, flexShrink: 0 }} />}
+                <div style={{
+                  width: 72, height: 72, borderRadius: '50%',
+                  border: `3px solid ${isSel ? INK : groupColor}`,
+                  overflow: 'hidden', background: '#000', flexShrink: 0,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}>
+                  {hasPhoto ? (
+                    <img src={p.photo} alt={p.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  ) : (
+                    <span style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 32, color: groupColor }}>
+                      {p.name[0]?.toUpperCase()}
+                    </span>
+                  )}
+                </div>
+                <span style={{
+                  fontFamily: "'Space Mono', monospace", fontSize: 12, fontWeight: 700, color: INK,
+                  letterSpacing: 0.5, textAlign: 'center', lineHeight: 1.2,
+                  width: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                }}>{p.name.toUpperCase()}</span>
+                {s.label && (
+                  <span style={{
+                    fontFamily: "'Bebas Neue', sans-serif", fontSize: 13,
+                    color: s.labelColor, letterSpacing: 1,
+                  }}>{s.label}</span>
+                )}
               </button>
             )
           })}
